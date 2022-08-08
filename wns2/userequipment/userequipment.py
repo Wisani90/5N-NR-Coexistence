@@ -27,6 +27,7 @@ class UserEquipment:
 
         self.bs_data_rate_allocation = {}
         self.buffer = 0
+        self.fairness = 0
 
 
 
@@ -251,6 +252,8 @@ class UserEquipment:
         current_bs = None
 
     def compute_data_rate(self):
+        ue_id = self.ue_id
+        environment = self.env
         return
 
     def get_buffer_size(self):
@@ -271,4 +274,8 @@ class UserEquipment:
         else:
             return False
 
-    
+    def update_fairness(self, selected):
+        if selected == 1:
+            self.fairness = max(self.fairness - 1, 0)
+        else:
+            self.fairness = self.fairness + 1

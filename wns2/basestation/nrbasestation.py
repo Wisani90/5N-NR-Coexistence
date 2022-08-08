@@ -196,15 +196,27 @@ class NRBaseStation(BaseStation):
         self.resource_utilization_counter += 1
         if self.resource_utilization_counter % self.T == 0:
             self.resource_utilization_counter = 0
-        
+
         self.load_history.append(self.get_usage_ratio())
         self.data_rate_history.append(self.allocated_data_rate)
-    
+
     def get_allocated_data_rate(self):
         return self.allocated_data_rate
 
-    #Implementazione nuova funzione di schedule per il nostro algoritmo. La funzione è necessaria per implementare il nostro algoritmo. L'algoritmo,
-    #per ogni TTI decide quale user schedulare. Gli step della funzione sono:
+    def get_data_rate(self, ue_id):
+        # current_bs_ue_id = list(self.ue_pb_allocation.keys())
+        if ue_id in self.ue_pb_allocation:
+            ue = self.env.ue_by_id(ue_id)
+            rsrp = self.compute_rsrp(ue)
+            sinr = self.compute_sinr(rsrp)
+            r = 12 * self.subcarrier_bandwidth * 1e3 * math.log2(1 + sinr) * (1 / (10 * (2 ** self.numerology)))
+            alloc_prb = self.ue_pb_allocation[ue_id]
+            return r
+
+        return
+
+    # Implementazione nuova funzione di schedule per il nostro algoritmo. La funzione è necessaria per implementare il nostro algoritmo. L'algoritmo,
+    # per ogni TTI decide quale user schedulare. Gli step della funzione sono:
     #
     # 1 controllo che l'utente sia connesso alla base station
     # 2 Verifica che il resource block sia allocabile nel frame attuale
@@ -219,6 +231,17 @@ class NRBaseStation(BaseStation):
             if self.total_prb - self.allocated_prb < nRBG:
                 self.allocated_prb = nRBG + self.allocated_prb
                 ris = 1
+
+                # if ue_id in self.ue_pb_allocation:
+                # self.allocated_prb -= self.ue_pb_allocation[ue_id]
+                self.ue_pb_allocation[ue_id] += nRBG
+                self.allocated_prb += nRBG
+
+                # if ue_id in self.ue_data_rate_allocation:
+                # self.allocated_data_rate -= self.ue_data_rate_allocation[ue_id]
+                r = self.get_data_rate(ue_id)
+                self.ue_data_rate_allocation[ue_id] += nRBG * r
+                self.allocated_data_rate += nRBG * r
             else:
                 ris = 0
         else:

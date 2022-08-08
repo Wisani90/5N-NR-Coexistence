@@ -52,8 +52,11 @@ class LEASCHEnv(gym.Env):
         return
 
     def _get_obs(self):
-        #metodo per prendere osservation variable dallo stato stato del sistema
-        return
+        # metodo per prendere osservation variable dallo stato stato del sistema
+        d = self.compute_d()
+        f = self.compute_f()
+        g = self.compute_g()
+        return self.compute_obs(d, g, f)
 
     #Auxiliary functions for state observation
     def compute_g(self):
@@ -65,36 +68,65 @@ class LEASCHEnv(gym.Env):
             ue_id = ue_list[i]
             ue = env.ue_by_id(ue_id)
             if(ue.isEligible()):
-                g[1,i] = 1
+                g[1, i] = 1
         return g
 
     def compute_d(self):
-        #TO DO
+        # TO DO
         env = self.env
         ue_list = env.ue_list
         d = np.zeros((1, self.n_ue))
-        for i in range(self.n_ue):
+        bs_list = env.bs_list
+        bs_list_ids = list(bs_list.keys())
 
-        return
+        bs_id = bs_list_ids[0]
+        bs = self.env.bs_by_id(bs_id)
+
+        ue_rate = bs.ue_data_rate_allocation
+
+        for i in range(self.n_ue):
+            ue_id = ue_list[i]
+            d[1, i] = ue_rate[ue_id]
+        return d
 
     def compute_f(self):
-        #TO DO
-        return
+        # TO DO
+        # TO DO
+        env = self.env
+        ue_list = env.ue_list
+        f = np.zeros((1, self.n_ue))
+        for i in range(self.n_ue):
+            ue_id = ue_list[i]
+            ue = env.ue_by_id(ue_id)
+            f[1, i] = ue.fairness
+        return f
 
-    def compute_obs(self):
-        #TO DO
-        return
+    def compute_obs(self, d, g, f):
+        # TO DO
+        s = np.multiply(d, g)
+        max_s = max(s)
+        if (max_s == 0):
+            s = s
+        else:
+            s = np.multiply(s, (1 / max_s))
+
+        max_f = max(f)
+
+        if (max_f == 0):
+            f = f
+        else:
+            f = np.multiply(f, (1 / max_f))
+
+        return np.vstack((np.transpose(s), np.transpose(f)))
 
     #######################################
 
-
     def _get_info(self):
-        #Info ausiliarie ritornate da step e reset
+        # Info ausiliarie ritornate da step e reset
         return
 
-
     def step(self):
-        #To DO...
+        # To DO...
         return
 
 
