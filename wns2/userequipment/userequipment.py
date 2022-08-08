@@ -26,6 +26,9 @@ class UserEquipment:
         self.sampling_time = self.env.get_sampling_time()
 
         self.bs_data_rate_allocation = {}
+        self.buffer = 0
+
+
 
     def get_position(self):
         return self.current_position
@@ -198,6 +201,7 @@ class UserEquipment:
             return None
         return self.connect_(bs, rsrp)
 
+
     def connect_max_rsrp(self):
         rsrp = self.measure_rsrp()
         if len(rsrp) == 0:
@@ -246,7 +250,25 @@ class UserEquipment:
         del self.bs_data_rate_allocation[current_bs]
         current_bs = None
 
+    def compute_data_rate(self):
+        return
 
-        
+    def get_buffer_size(self):
+        return self.buffer
+
+    def feed_buffer(self, buffer_size):
+        self.buffer = buffer_size
+
+    def reduce_buffer(self, data):
+        if(self.buffer - data < 0):
+            self.buffer = 0
+        else:
+            self.buffer = self.buffer - data
+
+    def isEligible(self):
+        if self.buffer > 0:
+            return True
+        else:
+            return False
 
     

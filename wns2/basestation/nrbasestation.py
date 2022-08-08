@@ -101,7 +101,7 @@ class NRBaseStation(BaseStation):
         self.ue_data_rate_allocation = {}
         self.allocated_prb = 0
         self.allocated_data_rate = 0
-        self.T = 10
+        self.T = 10 #Length of moving average for array utilization
         self.resource_utilization_array = [0] * self.T
         self.resource_utilization_counter = 0
         self.load_history = []
@@ -141,7 +141,7 @@ class NRBaseStation(BaseStation):
     def compute_prb_NR(self, data_rate, rsrp):
         sinr = self.compute_sinr(rsrp)
         r = 12*self.subcarrier_bandwidth*1e3*math.log2(1+sinr)*(1/(10*(2**self.numerology))) # if a single RB is allocated we transmit for 1/(10*2^mu) seconds each second in 12*15*2^mu KHz bandwidth
-        n_prb = math.ceil(data_rate*1e6/r) # the data-rate is in Mbps, so we had to convert it
+        n_prb= math.ceil(data_rate*1e6/r) # the data-rate is in Mbps, so we had to convert it
         return n_prb, r/1e6
 
     def connect(self, ue_id, desired_data_rate, rsrp):
@@ -173,7 +173,8 @@ class NRBaseStation(BaseStation):
         self.ue_data_rate_allocation[ue_id] = n_prb*r
         self.allocated_data_rate += n_prb*r 
         return r*n_prb
-    
+
+
     def disconnect(self, ue_id):
         self.allocated_prb -= self.ue_pb_allocation[ue_id]
         self.allocated_data_rate -= self.ue_data_rate_allocation[ue_id]
@@ -201,3 +202,32 @@ class NRBaseStation(BaseStation):
     
     def get_allocated_data_rate(self):
         return self.allocated_data_rate
+
+    #Implementazione nuova funzione di schedule per il nostro algoritmo. La funzione è necessaria per implementare il nostro algoritmo. L'algoritmo,
+    #per ogni TTI decide quale user schedulare. Gli step della funzione sono:
+    #
+    # 1 controllo che l'utente sia connesso alla base station
+    # 2 Verifica che il resource block sia allocabile nel frame attuale
+    # 3 Alloca la risorsa effettivamente
+    # 4 Se la risorsa non è allocabile ritorna 0
+
+    def schedule(self, ue_id, nRBG):
+
+        current_bs_ue_id = list(self.ue_pb_allocation.keys())
+
+        if(ue_id in current_bs_ue_id):
+            if self.total_prb - self.allocated_prb < nRBG:
+                self.allocated_prb = nRBG + self.allocated_prb
+                ris = 1
+            else:
+                ris = 0
+        else:
+            ris = 0
+
+        return ris
+
+    def disconnect_all(self):
+        current_bs_ue_id = list(self.ue_pb_allocation.keys())
+        for ue_id in current_bs_ue_id:
+            self.disconnect(ue_id)
+
