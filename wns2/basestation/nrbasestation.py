@@ -106,6 +106,7 @@ class NRBaseStation(BaseStation):
         self.resource_utilization_counter = 0
         self.load_history = []
         self.data_rate_history = []
+        self.RBG_size = 2
         return
 
     def get_position(self):
@@ -215,6 +216,18 @@ class NRBaseStation(BaseStation):
 
         return
 
+    def get_buffer_reduction(self, ue_id, nPRG):
+
+        if ue_id in self.ue_pb_allocation:
+            ue = self.env.ue_by_id(ue_id)
+            rsrp = self.compute_rsrp(ue)
+            sinr = self.compute_sinr(rsrp)
+            buffer_reduction = nPRG * 12 * self.subcarrier_bandwidth * 1e3 * math.log2(1 + sinr) * (
+                        1 / (10 * (2 ** self.numerology)))
+        else:
+            buffer_reduction = 0
+        return buffer_reduction
+
     # Implementazione nuova funzione di schedule per il nostro algoritmo. La funzione è necessaria per implementare il nostro algoritmo. L'algoritmo,
     # per ogni TTI decide quale user schedulare. Gli step della funzione sono:
     #
@@ -249,8 +262,15 @@ class NRBaseStation(BaseStation):
 
         return ris
 
+    def reset_condition(self):
+        if self.total_prb - self.allocated_prb >= self.RBG_size:
+            ris = 0
+        else:
+            ris = 1
+
+        return ris
+
     def disconnect_all(self):
         current_bs_ue_id = list(self.ue_pb_allocation.keys())
         for ue_id in current_bs_ue_id:
             self.disconnect(ue_id)
-

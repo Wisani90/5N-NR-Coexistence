@@ -151,6 +151,7 @@ class WNSEnv(gym.Env):
 
         self.init_env(x_lim, y_lim, self.terr_param, self.sat_param, self.n_ue)
         observation = self.observe()
+
         return observation  # reward, done, info can't be included
 
     def render(self, mode='human'):
