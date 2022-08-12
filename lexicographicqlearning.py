@@ -25,8 +25,8 @@ class LexicographicQTableLearner:
         """ Constructor for LexicographicQTableLearner.
 
         Parameters: 
-        env (gym environment): Open AI gym (Toy Text) environment of the game.
-        model_name (str): Name of the Open AI gym game
+        env (gym_custom environment): Open AI gym_custom (Toy Text) environment of the game.
+        model_name (str): Name of the Open AI gym_custom game
 
         Returns: None
         """

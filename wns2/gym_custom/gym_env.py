@@ -51,7 +51,7 @@ class WNSEnv(gym.Env):
         self.queue_parm = queue_parm
         self.load_parm = load_parm
         # Define action and observation space
-        # They must be gym.spaces objects
+        # They must be gym_custom.spaces objects
         # Example when using discrete actions:
         self.action_space = spaces.MultiDiscrete([2**self.len_p for _ in range(self.n_ue)]) 
         # Example for using image as input:

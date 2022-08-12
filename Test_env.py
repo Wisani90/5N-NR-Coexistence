@@ -49,6 +49,7 @@ env = LEASCHEnv(x_lim, y_lim, n_ue, bs_parm, ue_parm, 0, 0, max_steps)
 
 state = env.reset()
 
+print(env.observation_space.shape)
 num_steps = 99
 for s in range(num_steps + 1):
     print(f"step: {s} out of {num_steps}")

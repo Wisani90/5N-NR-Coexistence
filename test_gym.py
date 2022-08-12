@@ -2,7 +2,7 @@ from json import load
 
 from pkg_resources import load_entry_point
 from wns2.basestation.satellitebasestation import SatelliteBaseStation
-from wns2.gym.cac_env import CACGymEnv
+from wns2.gym_custom.cac_env import CACGymEnv
 import numpy.random as random
 import logging
 import lexicographicqlearning
