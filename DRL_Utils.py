@@ -64,6 +64,7 @@ class LEASCHEnv(gym.Env):
         g = self.compute_g()
         return self.compute_obs(d, g, f)
 
+
     #Auxiliary functions for state observation
     def compute_g(self):
         # TO DO
@@ -129,8 +130,9 @@ class LEASCHEnv(gym.Env):
     def compute_obs(self, d, g, f):
         # TO DO
         s = np.multiply(d, g)
+
         max_s = np.max(s)
-        # print(max_s)
+
         if (max_s == 0):
             s = s
         else:
@@ -143,7 +145,9 @@ class LEASCHEnv(gym.Env):
         else:
             f = np.multiply(f, (1 / max_f))
 
-        return np.vstack((np.transpose(s), np.transpose(f)))
+        s = np.reshape(s, (5, 1))
+        f = np.reshape(f, (5, 1))
+        return np.concatenate((s, f), axis=0)
 
     #######################################
 
@@ -170,6 +174,8 @@ class LEASCHEnv(gym.Env):
         metrics_array_index = info["LoggedSignals"]["scheduled_RBG"]
 
         # Extract d_hat and f data from the state s
+        print("ACTION!!!!")
+        print(action)
         d_hat = s[1:len(action), 0]
         f = s[len(action) + 1:2 * len(action), 0]
 

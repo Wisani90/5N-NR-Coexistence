@@ -12,7 +12,7 @@ class OneHotEncoding(gym.Space):
     def __init__(self, size=None):
         assert isinstance(size, int) and size > 0
         self.size = size
-        gym.Space.__init__(self, (), np.int64)
+        gym.Space.__init__(self, (self.size, 1))
 
     def sample(self):
         one_hot_vector = np.zeros(self.size)

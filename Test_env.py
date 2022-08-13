@@ -1,6 +1,8 @@
 from DRL_Utils import LEASCHEnv
 import gym
 import numpy as np
+from wns2.environment.ObservationSpace import ObservationSpace
+from wns2.environment.OneHotEncoding import OneHotEncoding
 
 # Da spostare ---------------------------
 n_ue = 5
@@ -45,17 +47,30 @@ y_lim = 500
 z_lim = 100
 max_steps = 500
 # --------------------------------------------
+obs = ObservationSpace(10)
+
+sample = obs.sample()
+print(sample)
+
+print("TEST OBSERVATION")
+
 env = LEASCHEnv(x_lim, y_lim, n_ue, bs_parm, ue_parm, 0, 0, max_steps)
+
+print(env._get_obs())
 
 state = env.reset()
 
-print(env.observation_space.shape)
+# print(env.observation_space.shape)
 num_steps = 99
 for s in range(num_steps + 1):
     print(f"step: {s} out of {num_steps}")
 
     # sample a random action from the list of available actions
     action = env.action_space.sample()
+    print("#########################")
+    print(env.action_space.shape)
+    print(env.observation_space.shape)
+    print("#########################")
 
     # perform this action on the environment
     env.step(action)

@@ -12,14 +12,15 @@ class ObservationSpace(gym.Space):
     def __init__(self, size=None):
         assert isinstance(size, int) and size > 0
         self.size = size
-        gym.Space.__init__(self, (), np.int64)
+        gym.Space.__init__(self, (size, 1))
 
     def sample(self):
         observation = np.random.rand(self.size, 1)
+
         return observation
 
     def contains(self, x):
-        if isinstance(x, (list, tuple, np.ndarray)) and x.size == self.size:
+        if isinstance(x, (list, np.array)) and x.size == self.size:
             result = True
             for elem in list(x):
                 if (elem < 0 or elem > 1):
