@@ -166,16 +166,17 @@ class LEASCHEnv(gym.Env):
 
     def step(self, action):
         # To DO..
-        info = self._get_info()
+        print(action)
+        info_bis = self._get_info()
         s = self._get_obs()
 
         g_prev = self.compute_g()
-        metrics_matrix = info["LoggedSignals"]["Data_Rate"]
-        metrics_array_index = info["LoggedSignals"]["scheduled_RBG"]
+        metrics_matrix = info_bis["LoggedSignals"]["Data_Rate"]
+        metrics_array_index = info_bis["LoggedSignals"]["scheduled_RBG"]
 
         # Extract d_hat and f data from the state s
         print("ACTION!!!!")
-        print(action)
+        print(action.shape)
         d_hat = s[1:len(action), 0]
         f = s[len(action) + 1:2 * len(action), 0]
 
@@ -184,7 +185,7 @@ class LEASCHEnv(gym.Env):
             if (action[u] == 1):
                 ue_index = u
 
-        self.perform_action(info["UEs"], ue_index, info["AP"], self.LoggedSignals, g_prev)
+        self.perform_action(info_bis["UEs"], ue_index, info_bis["AP"], self.LoggedSignals, g_prev)
 
         # compute g
         observation = self._get_obs()
@@ -203,20 +204,22 @@ class LEASCHEnv(gym.Env):
         if (not (max_d_hat == 0)):
             d_hat = np.multiply(d_hat, (1 / max_d_hat))
 
-        reward = self.compute_reward(ue_index, 0.5, info["UEs"], d_hat, f, g_prev)
+        reward = self.compute_reward(ue_index, 0.5, info_bis["UEs"], d_hat, f, g_prev)
 
         # Evaluate terminal condition
 
         cond = 1
 
-        for ue in info["UEs"]:
-            if (info["UEs"][ue].buffer == 0):
+        for ue in info_bis["UEs"]:
+            if (info_bis["UEs"][ue].buffer == 0):
                 cond = 0
 
         done = cond
         self.LoggedSignals["Data_rate"] = metrics_matrix
         self.LoggedSignals["scheduled_RBG"] = self.LoggedSignals["scheduled_RBG"] + 1
-
+        info = {}
+        print("REWARD!!!!")
+        print(reward)
         return observation, reward, done, info
 
     def perform_action(self, UEs, ue_index, AP, LoggedSignals, g):
@@ -286,7 +289,8 @@ class LEASCHEnv(gym.Env):
 
         f = np.zeros((1, self.n_ue))
         d = np.ones((1, self.n_ue))
-        observation = np.concatenate((f, d), axis=0)
+        observation = np.concatenate((f, d), axis=1)
+        observation = np.transpose(observation)
 
         # clean the render collection and add the initial frame
         # self.render.reset()
@@ -296,10 +300,12 @@ class LEASCHEnv(gym.Env):
         self.LoggedSignals["count_schedule"] = np.zeros((1, self.n_ue))
         self.LoggedSignals["good_schedule"] = np.zeros((1, self.n_ue))
         self.LoggedSignals["scheduled_RBG"] = 1
+        print("OBSERVATION ON RESET")
+        print(observation)
         return observation
 
     def render(self, mode='human'):
-        return self.env.render()
+        # return self.env.render()
         return
 
     def close(self):
