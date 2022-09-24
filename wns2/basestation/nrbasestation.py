@@ -210,7 +210,7 @@ class NRBaseStation(BaseStation):
             ue = self.env.ue_by_id(ue_id)
             rsrp = self.compute_rsrp(ue)
             sinr = self.compute_sinr(rsrp)
-            r = 12 * self.subcarrier_bandwidth * 1e3 * math.log2(1 + sinr) * (1 / (10 * (2 ** self.numerology)))
+            r = 12 * self.subcarrier_bandwidth * math.log2(1 + sinr) * (1 / ((2 ** self.numerology)))
             alloc_prb = self.ue_pb_allocation[ue_id]
             return r
 
@@ -220,10 +220,15 @@ class NRBaseStation(BaseStation):
 
         if ue_id in self.ue_pb_allocation:
             ue = self.env.ue_by_id(ue_id)
-            rsrp = self.compute_rsrp(ue)
+            rsrp = ue.measure_rsrp()
+            print(rsrp)
             sinr = self.compute_sinr(rsrp)
-            buffer_reduction = nPRG * 12 * self.subcarrier_bandwidth * 1e3 * math.log2(1 + sinr) * (
-                        1 / (10 * (2 ** self.numerology)))
+            print(sinr)
+            # buffer_reduction = nPRG * 12 * self.subcarrier_bandwidth * 1e3 * math.log2(1 + sinr) * (
+            #             1 / (10 * (2 ** self.numerology)))
+            buffer_reduction = nPRG * 12 * self.subcarrier_bandwidth * math.log2(1 + sinr) * (
+                    1 / ((2 ** self.numerology)))
+
         else:
             buffer_reduction = 0
         return buffer_reduction

@@ -49,34 +49,35 @@ max_steps = 500
 # --------------------------------------------
 obs = ObservationSpace(10)
 
-sample = obs.sample()
-print(sample)
-
 print("TEST OBSERVATION")
 
 env = LEASCHEnv(x_lim, y_lim, n_ue, bs_parm, ue_parm, 0, 0, max_steps)
 
-print(env._get_obs())
-
 state = env.reset()
+print('state value')
+
+print('print observations')
+print(env._get_obs())
 
 # print(env.observation_space.shape)
 num_steps = 99
-for s in range(num_steps + 1):
-    print(f"step: {s} out of {num_steps}")
+# for s in range(num_steps + 1):
+# print(f"step: {s} out of {num_steps}")
 
-    # sample a random action from the list of available actions
-    action = env.action_space.sample()
-    print("#########################")
-    print(env.action_space.shape)
-    print(env.observation_space.shape)
-    print("#########################")
+# sample a random action from the list of available actions
+# action = env.action_space.sample()
+# print("#########################")
+# print(env.action_space.shape)
+# print(env.observation_space.shape)
+# print("#########################")
 
-    # perform this action on the environment
-    env.step(action)
+# perform this action on the environment
 
-    # print the new state
-    # env.render()
+action = 1
+env.step(action)
+
+# print the new state
+# env.render()
 
 # end this instance of the taxi environment
 env.close()

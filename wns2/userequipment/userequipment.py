@@ -200,6 +200,7 @@ class UserEquipment:
             return None
         if bs not in rsrp:
             return None
+
         return self.connect_(bs, rsrp)
 
 
@@ -278,4 +279,5 @@ class UserEquipment:
         if selected == 1:
             self.fairness = max(self.fairness - 1, 0)
         else:
-            self.fairness = self.fairness + 1
+            if (self.buffer != 0):
+                self.fairness = self.fairness + 1
