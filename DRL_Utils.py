@@ -224,7 +224,7 @@ class LEASCHEnv(gym.Env):
 
         data_rate = np.transpose(d)
 
-        metrics_matrix[:, metrics_array_index] = data_rate
+        metrics_matrix[:, metrics_array_index] = d
 
         # Compute Reward
         print('d computation')
@@ -257,8 +257,9 @@ class LEASCHEnv(gym.Env):
         if (cond):
             print(
                 "Doneeeeeeee !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+            print()
         done = cond
-        self.LoggedSignals["Data_rate"] = metrics_matrix
+        self.LoggedSignals["Data_Rate"] = metrics_matrix
         self.LoggedSignals["scheduled_RBG"] = self.LoggedSignals["scheduled_RBG"] + 1
         info = {}
         # print("REWARD!!!!")
@@ -286,6 +287,7 @@ class LEASCHEnv(gym.Env):
             UEs[ue_id].update_fairness(selected)
 
         # print(g)
+        self.LoggedSignals['count_schedule'][ue_index] = self.LoggedSignals['count_schedule'][ue_index] + 1
         # print(ue_index)
         if (g[ue_index] == 1):
             # print("BS ID")
@@ -293,6 +295,7 @@ class LEASCHEnv(gym.Env):
             # print(ue_selected)
             # print("UE POSITION")
             # print(UEs[ue_selected].get_position())
+            self.LoggedSignals['good_schedule'][ue_index] = self.LoggedSignals['good_schedule'][ue_index] + 1
             print(UEs[ue_selected].connect_bs(AP.bs_id))
 
             schedule_result = AP.schedule(UEs[ue_selected], 2)
@@ -365,9 +368,9 @@ class LEASCHEnv(gym.Env):
         # self.render.reset()
         # self.render.render_step()
 
-        self.LoggedSignals["Data_Rate"] = np.zeros((self.n_ue, 10000))
-        self.LoggedSignals["count_schedule"] = np.zeros((1, self.n_ue))
-        self.LoggedSignals["good_schedule"] = np.zeros((1, self.n_ue))
+        self.LoggedSignals["Data_Rate"] = np.zeros((self.n_ue, 100000))
+        self.LoggedSignals["count_schedule"] = np.zeros(self.n_ue)
+        self.LoggedSignals["good_schedule"] = np.zeros(self.n_ue)
         self.LoggedSignals["scheduled_RBG"] = 1
 
         # observation = self._get_obs()
