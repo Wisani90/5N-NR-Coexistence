@@ -15,6 +15,8 @@ from rl.agents.dqn import DQNAgent
 from rl.policy import EpsGreedyQPolicy
 from rl.memory import SequentialMemory
 from rl.policy import GreedyQPolicy
+
+import tf_agents
 from environment.OneHotPolicy import OneHotPolicy
 
 # Get the environment and extract the number of actions available in the Cartpole problem
@@ -28,8 +30,8 @@ bs_parm = [{"pos": (0, 0, 30),
             "bandwidth": 20,
             "max_bitrate": 1000}]
 
-ue_parm = [{"x": 450,
-            "y": 700,
+ue_parm = [{"x": 1500,
+            "y": 1000,
             "z": 5,
             "uuid": "001",
             "buffer": 1024000},
@@ -43,13 +45,13 @@ ue_parm = [{"x": 450,
             "z": 5,
             "uuid": "003",
             "buffer": 1024000},
-           {"x": 500,
-            "y": 650,
+           {"x": 900,
+            "y": 850,
             "z": 5,
             "uuid": "004",
             "buffer": 1024000},
-           {"x": 850,
-            "y": 800,
+           {"x": 1500,
+            "y": 2000,
             "z": 5,
             "uuid": "005",
             "buffer": 1024000}
@@ -91,7 +93,7 @@ print(model.summary())
 
 # model = generate_dense_model((window_length,) + env.observation_space.shape, layers, nb_actions)
 
-training = 0
+training = 1
 
 test_policy = GreedyQPolicy()
 policy = EpsGreedyQPolicy()
@@ -103,6 +105,15 @@ memory = SequentialMemory(limit=50000, window_length=1)
 dqn = DQNAgent(model=model, nb_actions=nb_actions, memory=memory, nb_steps_warmup=10,
                target_model_update=1e-2, policy=policy, test_policy=test_policy)
 dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
+
+# Test tensorflow training ######################
+
+# Convert from gym spaces to tf spaces
+# tf_agents.environments.gym_wrapper.spec_from_gym_space(space: gym.Space)
+# tf_env = tf_agents.environments.suite_gym.wrap_env(env)
+# train_env = tf_agents.environments.TFPyEnvironment(tf_env)
+################################################
+
 
 # cb1 = keras.callbacks.TensorBoard(log_dir='./logs')
 # cb1 = tf.compat.v1.keras.callbacks.TensorBoard(
@@ -129,7 +140,7 @@ dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
 
 if (training):
     # Training
-    history = dqn.fit(env, nb_steps=500000, visualize=False, verbose=2, nb_max_episode_steps=3000)
+    history = dqn.fit(env, nb_steps=10000, visualize=False, verbose=2, nb_max_episode_steps=3000)
     date = datetime.datetime.now().strftime("%m%d%Y%H%M")
     model.save("./saved_models/model" + date + ".h5")
     dqn.save_weights("./saved_models/weights" + date + ".h5")
@@ -161,7 +172,7 @@ if (training):
 
     y = np.transpose(LoggedSignals["Data_Rate"])
     plt.plot(x, y)
-    plt.xlim([0, 5000])
+    plt.xlim([0, 500])
     plt.show()
     ################################
     # Histogram plot
@@ -175,13 +186,13 @@ if (training):
 
 
 else:
-    model = keras.models.load_model("./saved_models/model101520222134.h5")
+    model = keras.models.load_model("./saved_models/model101620221904.h5")
     dqn = DQNAgent(model=model, nb_actions=nb_actions, memory=memory, nb_steps_warmup=10,
                    target_model_update=1e-2, policy=test_policy, test_policy=test_policy)
     dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
     # Testing
-    dqn.load_weights("./saved_models/weights101520222134.h5")
-    history = dqn.test(env, verbose=1, visualize=True, nb_max_episode_steps=100000)
+    dqn.load_weights("./saved_models/weights101620221904.h5")
+    history = dqn.test(env, verbose=1, visualize=True, nb_max_episode_steps=20000)
     LoggedSignals = env.LoggedSignals
     ################################
     # Plots of data rates

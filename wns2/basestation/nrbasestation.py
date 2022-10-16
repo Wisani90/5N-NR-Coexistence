@@ -148,7 +148,7 @@ class NRBaseStation(BaseStation):
     def connect(self, ue_id, desired_data_rate, rsrp):
         # compute the number of PRBs needed for the requested data-rate,
         # then allocate them as much as possible
-
+        print("CONNECTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
         n_prb, r = self.compute_prb_NR(desired_data_rate, rsrp)
 
         if self.max_data_rate != None:
@@ -177,8 +177,11 @@ class NRBaseStation(BaseStation):
 
 
     def disconnect(self, ue_id):
+        print(self.ue_pb_allocation)
         self.allocated_prb -= self.ue_pb_allocation[ue_id]
         self.allocated_data_rate -= self.ue_data_rate_allocation[ue_id]
+        self.allocated_prb = 0
+        self.allocated_data_rate = 0
         del self.ue_data_rate_allocation[ue_id]
         del self.ue_pb_allocation[ue_id]
         return
@@ -201,15 +204,31 @@ class NRBaseStation(BaseStation):
         self.load_history.append(self.get_usage_ratio())
         self.data_rate_history.append(self.allocated_data_rate)
 
+        print("RESETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
+        print(self.reset_condition())
+        if (self.reset_condition()):
+            print("RESETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
+            self.disconnect_all()
+
     def get_allocated_data_rate(self):
         return self.allocated_data_rate
 
     def get_data_rate(self, ue_id):
+        interference = 0
         # current_bs_ue_id = list(self.ue_pb_allocation.keys())
         if ue_id in self.ue_pb_allocation:
             ue = self.env.ue_by_id(ue_id)
             rsrp = self.compute_rsrp(ue)
-            sinr = self.compute_sinr(rsrp)
+            bs_i = self.env.bs_by_id(self.bs_id)
+
+            rbur_i = bs_i.get_rbur()
+            print("RBURRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR")
+            print(rbur_i)
+            interference += (10 ** (rsrp / 10)) * rbur_i
+            thermal_noise = constants.Boltzmann * 293.15 * 15 * (
+                        2 ** self.numerology) * 1000  # delta_F = 15*2^mu KHz each subcarrier since we are considering measurements at subcarrirer level (like RSRP)
+            sinr = (10 ** (rsrp / 10)) / (thermal_noise + interference)
+            # sinr = self.compute_sinr(rsrp)
             r = 12 * self.subcarrier_bandwidth * math.log2(1 + sinr) * (1 / ((2 ** self.numerology)))
             alloc_prb = self.ue_pb_allocation[ue_id]
             return r
@@ -245,8 +264,13 @@ class NRBaseStation(BaseStation):
 
         current_bs_ue_id = list(self.ue_pb_allocation.keys())
 
-        if(ue_id in current_bs_ue_id):
-            if self.total_prb - self.allocated_prb < nRBG:
+        if (ue_id in current_bs_ue_id):
+            print("SCHEDULEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
+            print(self.total_prb)
+            print(self.allocated_prb)
+            print("SCHEDULEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
+            if self.total_prb - self.allocated_prb >= nRBG:
+
                 self.allocated_prb = nRBG + self.allocated_prb
                 ris = 1
 
@@ -255,15 +279,18 @@ class NRBaseStation(BaseStation):
                 self.ue_pb_allocation[ue_id] += nRBG
                 self.allocated_prb += nRBG
 
-                # if ue_id in self.ue_data_rate_allocation:
-                # self.allocated_data_rate -= self.ue_data_rate_allocation[ue_id]
+                if ue_id in self.ue_data_rate_allocation:
+                    self.allocated_data_rate -= self.ue_data_rate_allocation[ue_id]
                 r = self.get_data_rate(ue_id)
-                self.ue_data_rate_allocation[ue_id] += nRBG * r
+                # self.ue_data_rate_allocation[ue_id] += nRBG * r
                 self.allocated_data_rate += nRBG * r
+                self.step()
             else:
                 ris = 0
+                self.step()
         else:
             ris = 0
+            self.step()
 
         return ris
 

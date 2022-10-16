@@ -10,6 +10,7 @@ from wns2.environment.ObservationSpace import ObservationSpace
 from wns2.environment.OneHotEncoding import OneHotEncoding
 import numpy as np
 import math
+import tf_agents
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 
@@ -49,9 +50,10 @@ class LEASCHEnv(gym.Env):
         self.load_parm = load_parm
 
         # Define action and observation space
-        self.action_space = OneHotEncoding(n_ue)
+        self.action_space = gym.spaces.Discrete(n_ue)  # OneHotEncoding(n_ue)
         # Example for using image as input:
-        self.observation_space = ObservationSpace(2 * n_ue)
+        self.observation_space = gym.spaces.Box(low=0, high=1, shape=(2 * n_ue, 1),
+                                                dtype=np.float32)  # ObservationSpace(2 * n_ue)
         self.steps = max_steps
         self.max_steps = max_steps
         self.terr_param = terr_parm
@@ -59,6 +61,12 @@ class LEASCHEnv(gym.Env):
         self.ue_parm = ue_parm
         self.init_env(x_lim, y_lim, terr_parm, n_ue, ue_parm)
         return
+
+    def action_spec(self):
+        return tf_agents.environments.gym_wrapper.spec_from_gym_space(self.action_space)
+
+    def observation_spec(self):
+        return tf_agents.environments.gym_wrapper.spec_from_gym_space(self.observation_space)
 
     def _get_obs(self):
         # metodo per prendere osservation variable dallo stato stato del sistema
@@ -119,9 +127,10 @@ class LEASCHEnv(gym.Env):
             ue_id = ue_ids[i]
 
             if (ue_id not in ue_rate):
-                d[i] = 0
+                d[i] = 1
+                print("ookokokokokok")
             else:
-                d[i] = ue_rate[ue_id]
+                d[i] = bs.get_data_rate(ue_id)  #ue_rate[ue_id]
         return d
 
     def compute_f(self):
@@ -264,13 +273,18 @@ class LEASCHEnv(gym.Env):
         info = {}
         # print("REWARD!!!!")
         # print(reward)
+        print("Last observation!!!")
+        print(observation)
+        observation = self._get_obs()
         return observation, reward, done, info
 
     def perform_action(self, UEs, ue_index, AP, LoggedSignals, g):
         env = self.env
         ue_list = env.ue_list
         ue_ids = list(ue_list.keys())
-
+        print(ue_ids)
+        print("ue_index")
+        print(ue_index)
         ue = UEs[ue_ids[ue_index]]
 
         ris = np.zeros((1, len(ue_ids)))
@@ -286,6 +300,9 @@ class LEASCHEnv(gym.Env):
                 selected = 0
             UEs[ue_id].update_fairness(selected)
 
+        if (UEs[ue_selected].ue_id not in AP.ue_pb_allocation.keys()):
+            AP.ue_pb_allocation[UEs[ue_selected].ue_id] = 0
+            AP.ue_data_rate_allocation[UEs[ue_selected].ue_id] = 0
         # print(g)
         self.LoggedSignals['count_schedule'][ue_index] = self.LoggedSignals['count_schedule'][ue_index] + 1
         # print(ue_index)
@@ -296,9 +313,13 @@ class LEASCHEnv(gym.Env):
             # print("UE POSITION")
             # print(UEs[ue_selected].get_position())
             self.LoggedSignals['good_schedule'][ue_index] = self.LoggedSignals['good_schedule'][ue_index] + 1
-            print(UEs[ue_selected].connect_bs(AP.bs_id))
+            # print(UEs[ue_selected].connect_bs(AP.bs_id))
+            if (UEs[ue_selected].ue_id not in AP.ue_pb_allocation.keys()):
+                AP.ue_pb_allocation[UEs[ue_selected].ue_id] = 0
+                AP.ue_data_rate_allocation[UEs[ue_selected].ue_id] = 0
 
-            schedule_result = AP.schedule(UEs[ue_selected], 2)
+            print("SCHEDULEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
+            schedule_result = AP.schedule(UEs[ue_selected].ue_id, 2)
             BUFFER_REDUCTION = 2 * AP.get_buffer_reduction(UEs[ue_selected].ue_id, 2)
             print('BUFFER EDUCTION:')
             print(BUFFER_REDUCTION)
@@ -368,7 +389,7 @@ class LEASCHEnv(gym.Env):
         # self.render.reset()
         # self.render.render_step()
 
-        self.LoggedSignals["Data_Rate"] = np.zeros((self.n_ue, 100000))
+        self.LoggedSignals["Data_Rate"] = np.zeros((self.n_ue, 1000000))
         self.LoggedSignals["count_schedule"] = np.zeros(self.n_ue)
         self.LoggedSignals["good_schedule"] = np.zeros(self.n_ue)
         self.LoggedSignals["scheduled_RBG"] = 1
