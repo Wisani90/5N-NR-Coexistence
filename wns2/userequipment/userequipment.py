@@ -8,8 +8,36 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 
 class UserEquipment:
-   
+    """
+    Class representing a User Equipment (UE) in a wireless network.
+
+    Attributes:
+    - env: The environment in which the UE operates.
+    - ue_id: Unique identifier of the UE.
+    - data_rate: Initial data rate of the UE.
+    - current_position: Current position of the UE.
+    - speed: Speed of the UE.
+    - direction: Direction of movement of the UE.
+    - random: Flag indicating whether UE movement is random or linear.
+    - _lambda_c: Poisson arrival rate for connection events.
+    - _lambda_d: Poisson arrival rate for disconnection events.
+    """
+    
     def __init__(self, env, ue_id, initial_data_rate, starting_position, speed = 0, direction = 0, random = False, _lambda_c = None, _lambda_d = None):
+        """
+        Initialize the User Equipment object.
+
+        Args:
+        - env: The environment in which the UE operates.
+        - ue_id: Unique identifier of the UE.
+        - initial_data_rate: Initial data rate of the UE.
+        - starting_position: Starting position of the UE.
+        - speed: Speed of the UE.
+        - direction: Direction of movement of the UE.
+        - random: Flag indicating whether UE movement is random or linear.
+        - _lambda_c: Poisson arrival rate for connection events.
+        - _lambda_d: Poisson arrival rate for disconnection events.
+        """
         self.ue_id = ue_id
         self.data_rate = initial_data_rate
         self.current_position = starting_position
@@ -28,10 +56,17 @@ class UserEquipment:
         self.bs_data_rate_allocation = {}
         self.buffer = 0
         self.fairness = 0
+        self.connected_bs = None
 
 
 
     def get_position(self):
+        """
+        Get the current position of the UE.
+
+        Returns:
+        Tuple representing the current position (x, y, z) of the UE.
+        """
         return self.current_position
     
     def get_id(self):
@@ -46,6 +81,12 @@ class UserEquipment:
             return self.line_move()
     
     def random_move(self):
+        """
+        Move the UE randomly within the environment.
+
+        Returns:
+        Updated position of the UE.
+        """
         val = random.randint(1, 4)
         size = random.randint(0, math.floor(self.speed*self.sampling_time))
         x_lim = self.env.get_x_limit()
@@ -65,6 +106,13 @@ class UserEquipment:
         return self.current_position
 
     def line_move(self):
+        """
+        Move the UE in a linear trajectory within the environment.
+
+        Returns:
+        Updated position of the UE.
+        """
+
         new_x = self.current_position[0]+self.speed*self.sampling_time*math.cos(math.radians(self.direction))
         new_y = self.current_position[1]+self.speed*self.sampling_time*math.sin(math.radians(self.direction))
         x_lim = self.env.get_x_limit()
@@ -163,6 +211,21 @@ class UserEquipment:
             return list(self.bs_data_rate_allocation.keys())[0]
 
     def advertise_connection(self):
+        """
+        Advertise connection to base station (BS) or decide to disconnect based on specified Poisson arrival rates.
+
+        If no BS is currently connected:
+        - If no connection rate (_lambda_c) is specified, advertise connection immediately.
+        - If connection rate is specified and connection time has elapsed, advertise connection.
+        - Otherwise, increment time counter.
+
+        If a BS is already connected:
+        - If no disconnection rate (_lambda_d) is specified, advertise connection each timestep.
+        - If disconnection time has elapsed, disconnect from current BS.
+        - Otherwise, increment time counter and advertise connection.
+
+        If disconnection occurs, a new connection attempt may be scheduled based on the connection rate.
+        """
         if len(self.bs_data_rate_allocation) == 0:
             # no BS connected, decide if it is time to connect
             if self._lambda_c == None:
@@ -237,6 +300,7 @@ class UserEquipment:
                 actual_data_rate = current_bs.update_connection(self.ue_id, self.data_rate, rsrp)
                 logging.info("UE %s updated to BS %s with data rate %s --> %s", self.ue_id, current_bs.get_id(), self.bs_data_rate_allocation[current_bs.get_id()], actual_data_rate)
                 self.bs_data_rate_allocation[current_bs.get_id()] = actual_data_rate
+            self.connected_bs = current_bs
         return actual_data_rate
 
     def disconnect(self):
@@ -245,6 +309,7 @@ class UserEquipment:
             self.env.bs_by_id(current_bs).disconnect(self.ue_id) 
             del self.bs_data_rate_allocation[current_bs]
             current_bs = None
+            self.connected_bs = None
     
     def requested_disconnect(self):
         # this is called if the env or the BS requested a disconnection
@@ -281,3 +346,79 @@ class UserEquipment:
         else:
             if (self.buffer != 0):
                 self.fairness = self.fairness + 1
+
+    def calculate_sinr(self, 
+                       received_signal_power=10.0, 
+                       interference_power=5.0, 
+                       noise_power=2.0):
+        if self.get_current_bs() is None:
+            # raise ValueError("UE is not connected to any base station.")
+            return 0
+        # Calculate SINR
+        sinr = received_signal_power / (interference_power + noise_power)
+        
+        return sinr
+    
+    def get_sinr(self):
+        return self.sinr
+
+    def calculate_interference(self, neighboring_cells, adjacent_channels):
+        if self.get_current_bs() is None:
+            # raise ValueError("UE is not connected to any base station.")
+            return 0
+
+        interference_power = 0.0
+
+        # Calculate interference power from neighboring cells
+        for cell in neighboring_cells:
+            if cell != self.get_current_bs():
+                # Assume each neighboring cell contributes some interference power
+                # Example: interference calculation based on distance, path loss, etc.
+                # Replace with actual interference calculation based on your model
+                distance = self.calculate_distance(self.connected_bs, cell)
+                path_loss = self.calculate_path_loss(distance)
+                interference_power += cell.transmit_power / path_loss  # Example formula
+
+        # Calculate interference power from adjacent channels
+        for channel in adjacent_channels:
+            if channel != self.connected_bs.channel:
+                # Assume each adjacent channel contributes some interference power
+                # Example: interference calculation based on frequency separation, etc.
+                # Replace with actual interference calculation based on your model
+                interference_power += channel.transmit_power / self.calculate_frequency_distance(channel)
+
+        return interference_power
+    
+    def calculate_distance(self, bs1, bs2):
+        distance = 0
+        if bs1 and bs2:
+            # Calculate Euclidean distance between two points in 3D space
+            dx = bs1.position[0] - bs2.position[0]
+            dy = bs1.position[1] - bs2.position[1]
+            dz = bs1.position[2] - bs2.position[2]
+            distance = math.sqrt(dx**2 + dy**2 + dz**2)
+            
+        return distance
+
+    def calculate_frequency_distance(self, channel):
+        # Example method to calculate frequency distance between channels
+        return abs(self.connected_bs.frequency - channel.frequency)  # Replace with actual calculation
+
+    def get_neighboring_cells(self, all_cells, max_distance):
+        neighboring_cells = []
+        for cell in all_cells:
+            if cell != self.connected_bs:
+                distance = self.calculate_distance(self.connected_bs, cell)
+                if distance <= max_distance:
+                    neighboring_cells.append(cell)
+        return neighboring_cells
+    
+    def get_neighboring_channels(self, all_channels, max_frequency_distance):
+        neighboring_channels = []
+        if self.connected_bs:
+            for channel in all_channels:
+                if channel != self.connected_bs.channel:
+                    frequency_distance = self.calculate_frequency_distance(channel)
+                    if frequency_distance <= max_frequency_distance:
+                        neighboring_channels.append(channel)
+        return neighboring_channels

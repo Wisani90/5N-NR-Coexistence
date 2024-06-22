@@ -2,6 +2,7 @@ from wns2.basestation.generic import BaseStation
 import math
 from scipy import constants
 from wns2.environment import environment
+from wns2.environment.channel import Channel
 from wns2.pathloss import costhata
 import logging
 
@@ -59,6 +60,7 @@ NRbandwidth_prb_lookup = {
     3:[None, 
     {
         50:32,
+        56:100,
         100:66,
         200:132,
         400:264
@@ -66,7 +68,40 @@ NRbandwidth_prb_lookup = {
 }
 
 class NRBaseStation(BaseStation):
-    def __init__(self, env, bs_id, position, carrier_frequency, total_bandwidth, numerology, max_data_rate = None, antenna_power = 20, antenna_gain = 16, feeder_loss = 3, pathloss = None):
+    """
+    Class representing a 5G New Radio (NR) base station in a wireless network.
+
+    Attributes:
+    - env: The environment in which the base station operates.
+    - bs_id: Unique identifier of the base station.
+    - position: Position of the base station.
+    - carrier_frequency: Carrier frequency of the base station.
+    - total_bandwidth: Total bandwidth allocated to the base station.
+    - numerology: Numerology parameter specifying the time-frequency grid spacing.
+    - max_data_rate: Maximum data rate supported by the base station.
+    - antenna_power: Power transmitted by the base station antenna (in dBm).
+    - antenna_gain: Gain of the base station antenna (in dBi).
+    - feeder_loss: Loss in the feeder cables connecting the antenna to the transmitter (in dB).
+    - pathloss: Path loss model used for computing signal attenuation.
+    """
+    
+    def __init__(self, env, bs_id, position, carrier_frequency, total_bandwidth, numerology, max_data_rate = None, antenna_power = 20, antenna_gain = 16, feeder_loss = 3, pathloss = None, channels=None):
+        """
+        Initialize the NRBaseStation object.
+
+        Args:
+        - env: The environment in which the base station operates.
+        - bs_id: Unique identifier of the base station.
+        - position: Position of the base station.
+        - carrier_frequency: Carrier frequency of the base station.
+        - total_bandwidth: Total bandwidth allocated to the base station.
+        - numerology: Numerology parameter specifying the time-frequency grid spacing.
+        - max_data_rate: Maximum data rate supported by the base station.
+        - antenna_power: Power transmitted by the base station antenna (in dBm).
+        - antenna_gain: Gain of the base station antenna (in dBi).
+        - feeder_loss: Loss in the feeder cables connecting the antenna to the transmitter (in dB).
+        - pathloss: Path loss model used for computing signal attenuation.
+        """
         if numerology not in NRbandwidth_prb_lookup:
             raise Exception("Invalid numerology for Base Station "+str(bs_id))
         if carrier_frequency >= 410 and carrier_frequency <=7125: # MHz
@@ -107,7 +142,13 @@ class NRBaseStation(BaseStation):
         self.load_history = []
         self.data_rate_history = []
         self.RBG_size = 2
+        self.transmission_power = 40  # Transmission power [dBm]
+        self.antenna_gain = 35  # Antenna gain [dBi]
+        self.channel = Channel.get_closest_channel(channels, carrier_frequency)
         return
+    
+    def compute_rsrp(self, ue):
+        return self.transmission_power + self.antenna_gain - self.pathloss.compute_path_loss(ue, self)
 
     def get_position(self):
         return self.position
@@ -118,16 +159,46 @@ class NRBaseStation(BaseStation):
     def get_id(self):
         return self.bs_id
     def get_usage_ratio(self):
+        """
+        Calculate the ratio of allocated Physical Resource Blocks (PRBs) to total PRBs available for the base station.
+
+        Returns:
+        - Usage ratio: Allocated PRBs / Total PRBs
+        """
         return self.allocated_prb / self.total_prb
 
     def compute_rsrp(self, ue):
+        """
+        Compute the Reference Signal Received Power (RSRP) for a user equipment (UE) connected to the base station.
+
+        Args:
+        - ue: User equipment object for which RSRP is calculated.
+
+        Returns:
+        - RSRP: Reference Signal Received Power (in dBm).
+        """
         subcarrier_power = 10*math.log10(self.antenna_power*1000 / (12*(self.total_prb/(10*2**self.numerology))))
         return subcarrier_power + self.antenna_gain -self.feeder_loss - self.pathloss.compute_path_loss(ue, self)
 
     def get_rbur(self):
+        """
+        Calculate the Resource Block Utilization Ratio (RBUR) for the base station.
+
+        Returns:
+        - RBUR: Average RB utilization ratio over a moving window of time.
+        """
         return sum(self.resource_utilization_array)/(self.T*self.total_prb)
 
     def compute_sinr(self, rsrp):
+        """
+        Compute the Signal-to-Interference-plus-Noise Ratio (SINR) for the base station.
+
+        Args:
+        - rsrp: Dictionary containing RSRP values for neighboring base stations.
+
+        Returns:
+        - SINR: Signal-to-Interference-plus-Noise Ratio.
+        """
         interference = 0
         for elem in rsrp:
             bs_i = self.env.bs_by_id(elem)
@@ -140,6 +211,17 @@ class NRBaseStation(BaseStation):
         return sinr
     
     def compute_prb_NR(self, data_rate, rsrp):
+        """
+        Compute the number of Physical Resource Blocks (PRBs) required to achieve a given data rate.
+
+        Args:
+        - data_rate: Target data rate (in Mbps).
+        - rsrp: Dictionary containing RSRP values for neighboring base stations.
+
+        Returns:
+        - n_prb: Number of PRBs required to achieve the target data rate.
+        - r: Data rate achieved per PRB (in Mbps).
+        """
         sinr = self.compute_sinr(rsrp)
         r = 12*self.subcarrier_bandwidth*1e3*math.log2(1+sinr)*(1/(10*(2**self.numerology))) # if a single RB is allocated we transmit for 1/(10*2^mu) seconds each second in 12*15*2^mu KHz bandwidth
         n_prb= math.ceil(data_rate*1e6/r) # the data-rate is in Mbps, so we had to convert it
@@ -148,7 +230,7 @@ class NRBaseStation(BaseStation):
     def connect(self, ue_id, desired_data_rate, rsrp):
         # compute the number of PRBs needed for the requested data-rate,
         # then allocate them as much as possible
-        print("CONNECTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
+        # print("CONNECTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
         n_prb, r = self.compute_prb_NR(desired_data_rate, rsrp)
 
         if self.max_data_rate != None:
@@ -165,9 +247,13 @@ class NRBaseStation(BaseStation):
             n_prb = MAX_PRB
         
         if ue_id in self.ue_pb_allocation:
-            self.allocated_prb -= self.ue_pb_allocation[ue_id]
-        self.ue_pb_allocation[ue_id] = n_prb
-        self.allocated_prb += n_prb 
+            try:
+                self.allocated_prb -= self.ue_pb_allocation[ue_id]
+                self.ue_pb_allocation[ue_id] = n_prb
+                self.allocated_prb += n_prb 
+            except Exception as e:
+                print(f"{ue_id}: \n{self.ue_pb_allocation}")
+                print(e)
 
         if ue_id in self.ue_data_rate_allocation:
             self.allocated_data_rate -= self.ue_data_rate_allocation[ue_id]
@@ -177,13 +263,17 @@ class NRBaseStation(BaseStation):
 
 
     def disconnect(self, ue_id):
-        print(self.ue_pb_allocation)
-        self.allocated_prb -= self.ue_pb_allocation[ue_id]
-        self.allocated_data_rate -= self.ue_data_rate_allocation[ue_id]
-        self.allocated_prb = 0
-        self.allocated_data_rate = 0
-        del self.ue_data_rate_allocation[ue_id]
-        del self.ue_pb_allocation[ue_id]
+        print(f"disconnect {self.ue_pb_allocation}")
+        try:
+            self.allocated_prb -= self.ue_pb_allocation[ue_id]
+            self.allocated_data_rate -= self.ue_data_rate_allocation[ue_id]
+            self.allocated_prb = 0
+            self.allocated_data_rate = 0
+            del self.ue_data_rate_allocation[ue_id]
+            del self.ue_pb_allocation[ue_id]
+        except Exception as e:
+            print(f"{ue_id}: {self.ue_pb_allocation}")
+            print(e)
         return
     
     def update_connection(self, ue_id, desired_data_rate, rsrp):
@@ -204,16 +294,25 @@ class NRBaseStation(BaseStation):
         self.load_history.append(self.get_usage_ratio())
         self.data_rate_history.append(self.allocated_data_rate)
 
-        print("RESETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
-        print(self.reset_condition())
+        # print("RESETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
+        self.reset_condition()
         if (self.reset_condition()):
-            print("RESETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
+            # print("RESETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
             self.disconnect_all()
 
     def get_allocated_data_rate(self):
         return self.allocated_data_rate
 
     def get_data_rate(self, ue_id):
+        """
+        Calculate the data rate for a specific user equipment (UE) connected to the base station.
+
+        Args:
+        - ue_id: ID of the UE for which data rate is calculated.
+
+        Returns:
+        - Data rate achieved by the UE (in Mbps).
+        """
         interference = 0
         # current_bs_ue_id = list(self.ue_pb_allocation.keys())
         if ue_id in self.ue_pb_allocation:
@@ -236,7 +335,16 @@ class NRBaseStation(BaseStation):
         return
 
     def get_buffer_reduction(self, ue_id, nPRG):
+        """
+        Calculate the reduction in buffer size for a UE due to the allocation of additional Physical Resource Blocks (PRBs).
 
+        Args:
+        - ue_id: ID of the UE for which buffer reduction is calculated.
+        - nPRG: Number of additional PRGs allocated to the UE.
+
+        Returns:
+        - Buffer reduction: Reduction in buffer size (in bits).
+        """
         if ue_id in self.ue_pb_allocation:
             ue = self.env.ue_by_id(ue_id)
             rsrp = ue.measure_rsrp()
@@ -265,10 +373,10 @@ class NRBaseStation(BaseStation):
         current_bs_ue_id = list(self.ue_pb_allocation.keys())
 
         if (ue_id in current_bs_ue_id):
-            print("SCHEDULEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
+            # print("SCHEDULEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
             print(self.total_prb)
             print(self.allocated_prb)
-            print("SCHEDULEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
+            # print("SCHEDULEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
             if self.total_prb - self.allocated_prb >= nRBG:
 
                 self.allocated_prb = nRBG + self.allocated_prb
